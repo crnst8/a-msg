@@ -9,6 +9,10 @@
   their coding agents, also usable in a browser and on a phone.
 </p>
 
+<p align="center">
+  <img src="docs/screenshot.png" width="760" alt="a-msg on macOS: the General chat with Hermes describing what it can do">
+</p>
+
 ---
 
 A Tauri app talks to a small Python service that runs beside Hermes. The service owns conversations, files and app
