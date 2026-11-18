@@ -1,0 +1,16 @@
+# Development only. Published on loopback, runs as a non-root user, mounts no host paths or Docker socket.
+name: amsg-dev
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: packaging/docker/Dockerfile
+    environment:
+      AMSG_PROVIDER: ${AMSG_PROVIDER:-fake}
+    ports:
+      - "127.0.0.1:8710:8710"
+    volumes:
+      - amsg-data:/data
+    restart: unless-stopped
+volumes:
+  amsg-data:

@@ -1,0 +1,40 @@
+name: amsg
+label: a-msg
+kind: platform
+version: 0.1.0
+description: >
+  Connects Hermes to the a-msg desktop chat service. Conversations map to a-msg spaces, replies stream
+  back through scoped connector routes, and scheduled jobs can deliver into spaces.
+author: a-msg
+requires_env:
+  - name: AMSG_URL
+    description: "a-msg service address, usually http://127.0.0.1:8710"
+    prompt: "a-msg service address"
+    password: false
+  - name: AMSG_CONNECTOR_TOKEN
+    description: "Connector credential from `amsg setup --hermes-env`"
+    prompt: "Connector credential"
+    password: true
+optional_env:
+  - name: AMSG_ALLOWED_USERS
+    description: "Must contain amsg-owner. `amsg setup` writes this."
+    prompt: "Allowed users"
+    password: false
+  - name: AMSG_HOME_CHANNEL
+    description: "Space ID that receives deliver=amsg results with no explicit target"
+    prompt: "Home space"
+    password: false
+  - name: AMSG_WORKSPACE_ROOTS
+    description: "Colon-separated folders the agent may register files from"
+    prompt: "Workspace folders"
+    password: false
+provides_tools:
+  - list_spaces
+  - create_space
+  - rename_space
+  - set_space_icon
+  - fork_conversation
+  - register_artifact
+  - read_thread_context
+  - list_automations
+  - update_delivery_target

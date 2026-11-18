@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Builds a-msg.app from this checkout and installs it. Run again after `git pull` to update.
+# Installs any missing build tools first (uv, Node, pnpm, Rust; see scripts/lib/toolchain.sh). Needs the Xcode
+# command line tools.
+#
+#   scripts/install-mac [--with-service] [--check] [--dest DIR] [--no-open]
+#
+#   --with-service  Bundle the a-msg service, for running Hermes on this Mac ("Use Hermes on this Mac").
+#   --check         Run the test suite (scripts/check --no-e2e) before building.
+#   --dest DIR      Install into DIR. Default: /Applications if writable, otherwise ~/Applications.
+#   --no-open       Do not open the app afterwards.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+# shellcheck source=scripts/lib/toolchain.sh
+. "$root/scripts/lib/toolchain.sh"
+
+with_service=0 check=0 dest="" open_app=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --with-service) with_service=1; shift ;;
+    --check) check=1; shift ;;
+    --dest) dest="${2:?--dest needs a folder}"; shift 2 ;;
+    --no-open) open_app=0; shift ;;
+    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "unknown option: $1 (see --help)" ;;
+  esac
+done
+
+[[ "$(uname -s)" == "Darwin" ]] || die "This script builds the macOS app. On a server, use scripts/install-server."
+if ! xcode-select -p >/dev/null 2>&1; then
+  xcode-select --install >/dev/null 2>&1 || true
+  die "The Xcode command line tools are required. Finish the installer that just opened, then run this again."
+fi
+need curl "It ships with macOS."
+
+ensure_uv
+ensure_node
+ensure_pnpm
+ensure_rust
+echo "macOS $(sw_vers -productVersion) $(uname -m), node $(node -v), pnpm $(pnpm --version), $(cargo --version)"
+install_dependencies
+
+if [[ $check == 1 ]]; then
+  say "Running checks"
+  scripts/check --no-e2e
+fi
+
+config=()
+if [[ $with_service == 1 ]]; then
+  say "Building the bundled service"
+  scripts/build-service
+  config=(--config src-tauri/tauri.localservice.conf.json)
+fi
+
+say "Building a-msg.app"
+(cd apps/desktop && pnpm exec tauri build --bundles app ${config[@]+"${config[@]}"})  # bash 3.2-safe when empty
+built="$root/apps/desktop/src-tauri/target/release/bundle/macos/a-msg.app"
+[[ -d "$built" ]] || die "The build finished without $built."
+# Ad-hoc signature: a local build needs no Apple identity, but the bundle must be signed as a whole to launch cleanly.
+codesign --force --deep --sign - "$built" >/dev/null 2>&1 || echo "warning: ad-hoc signing failed; the app may still open" >&2
+
+if [[ -z "$dest" ]]; then
+  if [[ -w /Applications ]]; then dest=/Applications; else dest="$HOME/Applications"; fi
+fi
+mkdir -p "$dest"
+if pgrep -x a-msg >/dev/null 2>&1; then
+  say "Quitting the running a-msg"
+  osascript -e 'quit app "a-msg"' >/dev/null 2>&1 || true
+  for _ in $(seq 1 50); do pgrep -x a-msg >/dev/null || break; sleep 0.1; done
+fi
+say "Installing into $dest"
+rm -rf "$dest/a-msg.app.new"
+ditto "$built" "$dest/a-msg.app.new"
+rm -rf "$dest/a-msg.app"
+mv "$dest/a-msg.app.new" "$dest/a-msg.app"
+echo "Installed: $dest/a-msg.app ($(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo 'no git revision'))"
+echo "Pair it with a server: run 'amsg pair' on the server, then enter the address and code in the app."
+[[ $open_app == 1 ]] && open "$dest/a-msg.app"
+exit 0

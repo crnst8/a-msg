@@ -1,0 +1,238 @@
+/* The rail and its active tab are one shape with the sheet: the tile runs flush into the paper edge. */
+.rail {
+  --item: 52px;
+  --tile-inset: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  background: var(--rail);
+  color: var(--rail-icon);
+  user-select: none;
+  -webkit-user-select: none;
+  padding-block: var(--rail-lead, 44px) 10px;
+}
+.rail[data-position='top'], .rail[data-position='bottom'] {
+  flex-direction: row;
+  align-items: stretch;
+  padding-block: 0;
+  padding-inline: var(--rail-lead-x, 10px) 10px;
+}
+/* Safe areas: the rail runs under the notch or home indicator and keeps its items clear of them. */
+.rail[data-position='left'] { padding-left: var(--safe-left); }
+.rail[data-position='right'] { padding-right: var(--safe-right); }
+.rail[data-position='top'] { padding-top: var(--safe-top); }
+.rail[data-position='bottom'] { padding-bottom: var(--safe-bottom); padding-inline: calc(10px + var(--safe-left)) calc(10px + var(--safe-right)); }
+
+.primary { display: flex; flex-direction: column; flex: none; gap: 8px; }
+.rail[data-position='top'] .primary, .rail[data-position='bottom'] .primary { flex-direction: row; gap: 4px; }
+
+.group {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-block: auto;
+  padding-block: 12px 10px;
+  border-block: 1px solid var(--rail-icon);
+}
+.rail[data-position='top'] .group, .rail[data-position='bottom'] .group {
+  flex-direction: row;
+  flex: 1 1 0;
+  min-width: 0;
+  margin-block: 0;
+  margin-inline: 12px;
+  padding-block: 0;
+  padding-inline: 10px;
+  border-block: 0;
+  border-inline: 1px solid color-mix(in srgb, var(--rail-icon) 60%, transparent);
+  align-items: stretch;
+}
+
+.scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.rail[data-position='top'] .scroll, .rail[data-position='bottom'] .scroll {
+  flex-direction: row;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 100%;
+  height: var(--item);
+  color: var(--rail-icon);
+  transition: color var(--fast) linear;
+  outline-offset: -3px;
+}
+.rail[data-position='top'] .item, .rail[data-position='bottom'] .item {
+  width: 52px;
+  height: 100%;
+  justify-content: center;
+}
+.item::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 var(--tile-inset);
+  border-radius: 6px 0 0 6px;
+  border: 1px solid transparent;
+  border-right: 0;
+  transition: background var(--fast) linear, border-color var(--fast) linear;
+}
+.rail[data-position='right'] .item::before {
+  inset: 0 var(--tile-inset) 0 0;
+  border-radius: 0 6px 6px 0;
+  border: 1px solid transparent;
+  border-left: 0;
+}
+.rail[data-position='top'] .item::before {
+  inset: var(--tile-inset) 0 0 0;
+  border-radius: 6px 6px 0 0;
+  border: 1px solid transparent;
+  border-bottom: 0;
+}
+.rail[data-position='bottom'] .item::before {
+  inset: 0 0 var(--tile-inset) 0;
+  border-radius: 0 0 6px 6px;
+  border: 1px solid transparent;
+  border-top: 0;
+}
+.item:hover::before { background: color-mix(in srgb, var(--rail-active) 55%, transparent); }
+.item[aria-current='page']::before {
+  background: var(--rail-active);
+  border-color: var(--rail-icon);
+}
+.item[aria-current='page'], .item:hover { color: var(--rail-bright); }
+
+.glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-inline: 22px;
+}
+.rail[data-position='top'] .glyph, .rail[data-position='bottom'] .glyph { margin-inline: 0; }
+.image { width: 28px; height: 28px; object-fit: contain; transition: filter var(--fast) linear; }
+.item[aria-current='page'] .image, .item:hover .image { filter: brightness(1.55) sepia(0.12); }
+
+.label {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 12px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--rail-text);
+}
+.item[aria-current='page'] .label { color: var(--rail-bright); }
+
+.unread {
+  position: absolute;
+  top: -2px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rail-new-mark);
+  box-shadow: 0 0 0 2px var(--rail);
+}
+.clock {
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--rail);
+  color: var(--rail-bright);
+}
+
+.new {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 40px;
+  width: 100%;
+  margin-top: 4px;
+  color: var(--rail-new-mark);
+  outline-offset: -3px;
+}
+.rail[data-position='top'] .new, .rail[data-position='bottom'] .new {
+  width: 44px;
+  height: 100%;
+  margin-top: 0;
+  justify-content: center;
+}
+.newTile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-inline: 24px;
+  border-radius: 6px;
+  background: var(--rail-new);
+  transition: background var(--fast) linear;
+}
+.rail[data-position='top'] .newTile, .rail[data-position='bottom'] .newTile { margin-inline: 0; }
+.new:hover .newTile { background: #45462a; }
+
+.more {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 100%;
+  color: var(--rail-icon);
+  outline-offset: -3px;
+}
+.more:hover { color: var(--rail-bright); }
+
+.settings { flex: none; display: flex; flex-direction: column; }
+.helpIcon { display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 18px; font-weight: 700; line-height: 1; }
+.rail[data-position='top'] .settings, .rail[data-position='bottom'] .settings { flex-direction: row; }
+
+.dropLine {
+  position: fixed;
+  background: var(--rail-new-mark);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.item[data-dragging='true'] { opacity: 0.45; }
+
+/* Keep all five destinations, New space and overflow reachable on a 320px phone. */
+@media (max-width: 600px) {
+  .rail[data-position='bottom'] { padding-inline: var(--safe-left) var(--safe-right); }
+  .rail[data-position='bottom'] .primary { gap: 0; }
+  .rail[data-position='bottom'] .item { width: 44px; }
+  .rail[data-position='bottom'] .group { margin-inline: 0; padding-inline: 0; border-inline: 0; }
+}
+
+@media (max-height: 600px) {
+  .rail { --item: 44px; padding-block: var(--rail-lead-short, 30px) 6px; }
+  .rail[data-position='top'], .rail[data-position='bottom'] { padding-block: 0; }
+  .primary { gap: 2px; }
+  .group { padding-block: 6px 4px; }
+  .new { height: 34px; }
+}
+
+@media (pointer: coarse) { .more { width: 44px; } }

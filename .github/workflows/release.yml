@@ -1,0 +1,133 @@
+name: release
+
+# A v* tag (pushed by scripts/release.sh) builds the release assets and publishes the GitHub release:
+#   amsg-service-<version>-linux-x86_64.tar.gz, amsg-service-<version>-linux-aarch64.tar.gz  (service + installers)
+#   a-msg-<version>-macos-arm64.zip                                                         (unsigned app)
+# Run it by hand (Actions > release > Run workflow) to build and test the same assets without releasing.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu 22.04 keeps the glibc floor at 2.35, so the archives also run on Debian 12 and newer distributions.
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.7"
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - name: Build and smoke-test the service archive
+        run: scripts/build-service --archive
+      - name: The archive version matches the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          built="$(build/service/amsg/amsg --version)"
+          [ "v$built" = "$GITHUB_REF_NAME" ] || { echo "built $built, tag $GITHUB_REF_NAME" >&2; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: service-${{ matrix.arch }}
+          path: release/amsg-service-*.tar.gz*
+          if-no-files-found: error
+
+  service-on-debian:
+    needs: service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: service-x86_64
+      - name: Run the archive on Debian 12 the way a self-hoster would
+        run: |
+          sha256sum -c amsg-service-*.tar.gz.sha256
+          cat > smoke.sh <<'EOF'
+          set -euo pipefail
+          cd /tmp && tar -xzf /w/amsg-service-*.tar.gz && cd amsg-service-*/
+          ./service/amsg --version
+          ./service/amsg pair --data-dir /tmp/data
+          AMSG_DATA_DIR=/tmp/data ./service/amsg serve --port 18710 >/tmp/serve.log 2>&1 &
+          for _ in $(seq 1 50); do
+            status="$( (exec 3<>/dev/tcp/127.0.0.1/18710 && printf 'GET /health/live HTTP/1.0\r\n\r\n' >&3 && head -1 <&3) 2>/dev/null || true)"
+            if [[ "$status" == *" 200 "* ]]; then echo "health ok"; exit 0; fi
+            sleep 0.2
+          done
+          cat /tmp/serve.log
+          exit 1
+          EOF
+          docker run --rm -v "$PWD:/w" debian:12-slim bash -c 'useradd -m -s /bin/bash tester && su tester -c "bash /w/smoke.sh"'
+
+  mac-app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build with the one-shot install script
+        run: scripts/install-mac --no-open --dest "$RUNNER_TEMP/Applications"
+      - name: Package
+        run: |
+          version="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' services/api/src/amsg/__init__.py)"
+          app="$RUNNER_TEMP/Applications/a-msg.app"
+          codesign --verify --deep "$app"
+          mkdir -p release
+          zip="release/a-msg-$version-macos-$(uname -m).zip"
+          ditto -c -k --keepParent "$app" "$zip"
+          (cd release && shasum -a 256 "$(basename "$zip")" > "$(basename "$zip").sha256")
+          ls -l release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: release/a-msg-*.zip*
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [service, service-on-debian, mac-app]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "CHANGELOG.md has no notes for $version" >&2; exit 1; }
+          cat >> notes.md <<EOF
+
+          ## Install
+
+          **Service (Linux, beside Hermes 0.23.0+):** download the archive for your CPU, then
+          \`tar -xzf amsg-service-$version-linux-<arch>.tar.gz && cd amsg-service-$version-linux-<arch> && ./install.sh\`.
+          Or build from source with \`scripts/install-server\` (see the README).
+
+          **Mac app (Apple silicon):** unzip \`a-msg-$version-macos-arm64.zip\` into Applications. The app is not
+          notarized, so macOS blocks the first launch: run \`xattr -dr com.apple.quarantine /Applications/a-msg.app\`,
+          or build it yourself with \`scripts/install-mac\`.
+
+          Checksums are in the \`.sha256\` files.
+          EOF
+          prerelease=""
+          case "$version" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" assets/* --verify-tag --title "a-msg $version" \
+            --notes-file notes.md $prerelease

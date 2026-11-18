@@ -1,0 +1,11 @@
+{
+  "name": "amsg",
+  "private": true,
+  "packageManager": "pnpm@12.10.1",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "dev": "scripts/dev",
+    "check": "scripts/check",
+    "contracts": "scripts/generate-contracts"
+  }
+}

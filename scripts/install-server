@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Builds the a-msg service from this checkout and installs it beside Hermes on this host, or upgrades an existing
+# install in place. Run again after `git pull` to update. Installs any missing build tools first (uv, Node, pnpm; see
+# scripts/lib/toolchain.sh). Needs curl and Hermes 0.23.0 or newer. Runs as your user; no sudo.
+#
+#   scripts/install-server [--hermes-home PATH] [--web-origin URL] [options]
+#
+#   --hermes-home PATH   Hermes profile (default $HERMES_HOME or ~/.hermes).
+#   --web-origin URL     Turn on browser access at this HTTPS address, served through a reverse proxy on this host
+#                        (see docs/operations.md, Browser access). Asks for the sign-in password the first time.
+#   --web-listen ADDR    Listener for the proxy (default 127.0.0.1:8711).
+#   --web-trust ADDR     Proxy address allowed to connect to it (default 127.0.0.1). Repeat for several.
+#   --no-web-ui          Build without the browser interface (skips Node and pnpm).
+#   --prefix PATH        Install location (default ~/.local/opt/amsg).
+#   --reinstall          Run the full installer even when a-msg is already installed. This issues a new connector
+#                        credential and re-enables the plugin in every Hermes platform list.
+#   --restart-hermes     After an upgrade that changed the Hermes plugin, restart hermes-gateway.service.
+#   --no-systemd         Do not create or manage the user service.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+# shellcheck source=scripts/lib/toolchain.sh
+. "$root/scripts/lib/toolchain.sh"
+
+hermes_home="${HERMES_HOME:-$HOME/.hermes}" prefix="$HOME/.local/opt/amsg"
+web_origin="" web_listen="127.0.0.1:8711" web_trust=() web_ui=1 reinstall=0 restart_hermes=0 systemd=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --hermes-home) hermes_home="${2:?}"; shift 2 ;;
+    --web-origin) web_origin="${2:?}"; shift 2 ;;
+    --web-listen) web_listen="${2:?}"; shift 2 ;;
+    --web-trust) web_trust+=("${2:?}"); shift 2 ;;
+    --no-web-ui) web_ui=0; shift ;;
+    --prefix) prefix="${2:?}"; shift 2 ;;
+    --reinstall) reinstall=1; shift ;;
+    --restart-hermes) restart_hermes=1; shift ;;
+    --no-systemd) systemd=0; shift ;;
+    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "unknown option: $1 (see --help)" ;;
+  esac
+done
+[[ ${#web_trust[@]} -gt 0 ]] || web_trust=(127.0.0.1)
+if [[ -n "$web_origin" && "$web_origin" != https://* ]]; then die "--web-origin must start with https://"; fi
+if [[ -n "$web_origin" && $web_ui == 0 ]]; then die "--web-origin needs the browser interface; drop --no-web-ui."; fi
+[[ "$(id -u)" != 0 ]] || die "Run this as the user that runs Hermes, not root."
+need curl "Install it with your package manager."
+need tar "Install it with your package manager."
+
+ensure_uv
+if [[ $web_ui == 1 ]]; then
+  ensure_node
+  ensure_pnpm
+  say "Installing interface dependencies from the lockfile"
+  pnpm install --frozen-lockfile
+fi
+
+say "Building the service"
+if [[ $web_ui == 0 && -d node_modules ]]; then
+  # build-service adds the interface whenever node_modules exists; hide it for an interface-free build.
+  mv node_modules node_modules.install-server
+  trap 'mv "$root/node_modules.install-server" "$root/node_modules"' EXIT
+fi
+scripts/build-service --archive
+binary="$root/build/service/amsg/amsg"
+stage="$root/build/amsg-service-$("$binary" --version)-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+[[ -x "$stage/service/amsg" ]] || die "The build did not produce $stage."
+
+data="${AMSG_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/amsg}"
+[[ "$(uname -s)" == "Darwin" ]] && data="${AMSG_DATA_DIR:-$HOME/Library/Application Support/a-msg}"
+port() { grep -oE '"port": *[0-9]+' "$data/service.json" 2>/dev/null | grep -oE '[0-9]+$' || echo 8710; }
+use_systemd() { [[ $systemd == 1 ]] && systemctl --user cat amsg.service >/dev/null 2>&1; }
+healthy() {
+  for _ in $(seq 1 100); do curl -sf "http://127.0.0.1:$(port)/health/live" >/dev/null && return 0; sleep 0.2; done
+  return 1
+}
+revision() { git -C "$root" rev-parse --short HEAD 2>/dev/null || echo "unversioned"; }
+installer_flags=(--hermes-home "$hermes_home" --prefix "$prefix")
+[[ $systemd == 1 ]] || installer_flags+=(--no-systemd)
+
+if [[ ! -x "$prefix/service/amsg" || $reinstall == 1 ]]; then
+  say "Installing into $prefix"
+  "$stage/install.sh" "${installer_flags[@]}"
+else
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  say "Upgrading $prefix ($(cat "$prefix/service/RELEASE" 2>/dev/null || echo 'previous build') -> $(revision))"
+  "$prefix/service/amsg" backup --output "$data/backups/pre-upgrade-$stamp" >/dev/null
+  echo "Database backup: $data/backups/pre-upgrade-$stamp"
+  use_systemd && systemctl --user stop amsg.service
+  mv "$prefix/service" "$prefix/service.prev-$stamp"
+  cp -R "$stage/service" "$prefix/service"
+  revision > "$prefix/service/RELEASE"
+  if use_systemd; then
+    systemctl --user start amsg.service
+    if ! healthy; then
+      echo "The new service did not start; restoring the previous one." >&2
+      systemctl --user stop amsg.service || true
+      rm -rf "$prefix/service" && mv "$prefix/service.prev-$stamp" "$prefix/service"
+      systemctl --user start amsg.service
+      die "Upgrade rolled back. See journalctl --user -u amsg.service"
+    fi
+    echo "Service restarted and healthy. Previous build kept at $prefix/service.prev-$stamp"
+  else
+    echo "Start the service under your supervisor: $prefix/service/amsg serve"
+  fi
+  plugin="$hermes_home/plugins/amsg"
+  if ! diff -rq -x __pycache__ "$stage/hermes-plugin" "$plugin" >/dev/null 2>&1; then
+    [[ -d "$plugin" ]] && mv "$plugin" "$hermes_home/.amsg-plugin-prev-$stamp"
+    cp -R "$stage/hermes-plugin" "$plugin"
+    if [[ $restart_hermes == 1 ]] && systemctl --user cat hermes-gateway.service >/dev/null 2>&1; then
+      systemctl --user restart hermes-gateway.service
+      echo "Hermes plugin updated and hermes-gateway.service restarted."
+    else
+      echo "Hermes plugin updated. Restart the Hermes gateway to load it (this restarts every Hermes platform):"
+      echo "  systemctl --user restart hermes-gateway.service"
+    fi
+  fi
+fi
+
+if [[ -n "$web_origin" ]]; then
+  say "Browser access at $web_origin"
+  trust=()
+  for address in "${web_trust[@]}"; do trust+=(--trust "$address"); done
+  "$prefix/service/amsg" web --origin "$web_origin" --listen "$web_listen" "${trust[@]}" >/dev/null
+  if ! "$prefix/service/amsg" web --json 2>/dev/null | grep -q '"configured": true'; then
+    if [[ -t 0 ]]; then
+      "$prefix/service/amsg" web --password
+    else
+      echo "Set the sign-in password from a terminal: $prefix/service/amsg web --password"
+    fi
+  fi
+  if use_systemd; then
+    systemctl --user restart amsg.service
+    healthy || die "The service did not come back after enabling browser access. See journalctl --user -u amsg.service"
+  fi
+  echo "Point your HTTPS reverse proxy for ${web_origin#https://} at $web_listen (docs/operations.md, Browser access)."
+fi
+echo
+echo "Done. Pair a device: $prefix/service/amsg pair"

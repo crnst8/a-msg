@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Real-Hermes test environment: a pinned Hermes in an isolated profile, never the default ~/.hermes.
+#   scripts/hermes-dev setup | service | gateway | status
+# Needs OPENCODE_API_KEY in .env. Model and tag are set below.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$HOME/.local/bin:$PATH"
+tag=v0.23.0
+model=deepseek-v4.1-flash
+base="${AMSG_HERMES_DIR:-$HOME/.cache/amsg}"
+source_dir="$base/hermes-agent" venv="$base/hermes-venv" home="$base/hermes-home"
+data="$base/hermes-data" port=8720 token_file="$base/hermes-device-token"
+hermes() { HERMES_HOME="$home" "$venv/bin/hermes" "$@"; }
+case "${1:-}" in
+  setup)
+    mkdir -p "$base" "$data"
+    [[ -d "$source_dir" ]] || git clone --quiet https://github.com/NousResearch/hermes-agent "$source_dir"
+    git -C "$source_dir" fetch --quiet --tags && git -C "$source_dir" checkout --quiet "$tag"
+    [[ -x "$venv/bin/python" ]] || uv venv -q --python 3.11 "$venv"
+    (cd "$source_dir" && UV_PROJECT_ENVIRONMENT="$venv" uv sync -q --frozen --no-dev)
+    mkdir -p "$home/plugins"; chmod 700 "$home"
+    ln -sfn "$root/integrations/hermes/amsg_plugin" "$home/plugins/amsg"
+    cat > "$home/config.yaml" <<YAML
+model:
+  default: $model
+  provider: opencode-go
+platform_toolsets:
+  amsg: [amsg, cronjob, file]
+gateway:
+  platforms:
+    amsg:
+      enabled: true
+cron:
+  wrap_response: false
+YAML
+    ( umask 077; set -a; . "$root/.env"; set +a; printf 'OPENCODE_GO_API_KEY=%s\n' "$OPENCODE_API_KEY" > "$home/.env" )
+    (cd "$root/services/api" && uv run --quiet --frozen amsg setup --data-dir "$data" --port "$port" --hermes-env "$home/.env" | grep -v 'Pairing code')
+    (cd "$root/services/api" && uv run --quiet --frozen amsg device-token --data-dir "$data" --name hermes-test) > "$token_file"
+    chmod 600 "$token_file"
+    hermes plugins enable amsg | tail -1
+    ;;
+  service) cd "$root/services/api" && exec uv run --quiet --frozen amsg serve --data-dir "$data" ;;
+  gateway) HERMES_HOME="$home" exec "$venv/bin/hermes" gateway run ;;
+  status) hermes plugins list | grep -i amsg; curl -s "http://127.0.0.1:$port/health/live"; echo ;;
+  *) sed -n 2,4p "$0"; exit 2 ;;
+esac

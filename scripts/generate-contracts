@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Export OpenAPI from the service and regenerate TypeScript contracts. --check fails on drift.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+contracts="$root/packages/contracts"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+(cd "$root/services/api" && uv run --quiet amsg openapi) > "$tmp/openapi.json"
+(cd "$contracts" && pnpm exec openapi-typescript "$tmp/openapi.json" -o "$tmp/api.ts" --silent 2>/dev/null || pnpm exec openapi-typescript "$tmp/openapi.json" -o "$tmp/api.ts")
+if [[ "${1:-}" == "--check" ]]; then
+  diff -q "$tmp/openapi.json" "$contracts/openapi.json"
+  diff -q "$tmp/api.ts" "$contracts/generated/api.ts"
+  echo "contracts up to date"
+else
+  cp "$tmp/openapi.json" "$contracts/openapi.json"
+  cp "$tmp/api.ts" "$contracts/generated/api.ts"
+fi

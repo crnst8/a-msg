@@ -1,0 +1,51 @@
+.view { height: 100%; overflow-y: auto; }
+.column { max-width: calc(var(--reading) + 96px); margin-inline: auto; padding: 28px clamp(16px, 5cqi, 48px) 40px; }
+.title { font-size: 1.75rem; line-height: 2.125rem; font-weight: 700; letter-spacing: -0.02em; }
+.heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.heading .title { flex: 1; min-width: 0; }
+.cards { display: grid; gap: 12px; }
+.card { border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.cardHead { display: flex; align-items: center; gap: 12px; padding: 14px 12px 14px 20px; }
+.cardTitle { flex: 1; min-width: 0; }
+.name { display: block; font-size: 1rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; line-height: 1.125rem; color: var(--text-2); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); flex: none; }
+.dot[data-state='connected'] { background: var(--success); }
+.dot[data-state='error'] { background: var(--error); }
+.dot[data-state='disconnected'], .dot[data-state='unknown'] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-2); }
+.sessions { border-top: 1px solid var(--line); }
+.session {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 20px;
+  text-align: left;
+  transition: background var(--fast) linear;
+}
+.session:hover { background: var(--hover); }
+.session + .session { border-top: 1px solid var(--line); }
+.sessionIcon { color: var(--text-2); }
+.sessionText { display: grid; min-width: 0; }
+.sessionTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; line-height: 1.375rem; }
+.sessionPath { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.125rem; letter-spacing: 0; color: var(--text-2); }
+.sessionDate { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0; color: var(--text-2); }
+.empty { padding: 4px 0; }
+.emptyLine { font-size: 1.75rem; line-height: 2.125rem; letter-spacing: -0.02em; margin-bottom: 16px; }
+.checks { display: grid; gap: 4px; padding: 0 20px 14px; margin: 0; list-style: none; font-size: 0.875rem; line-height: 1.25rem; }
+.check { display: flex; gap: 8px; align-items: flex-start; }
+.checkOk { color: var(--success); }
+.checkBad { color: var(--error); }
+.stack { display: grid; gap: 14px; }
+.diff { margin: 0; padding: 12px 14px; max-height: 300px; overflow: auto; border-radius: var(--radius-control); background: var(--well); font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.3125rem; letter-spacing: 0; white-space: pre; }
+.diffAdd { display: block; background: var(--success-surface); color: var(--success); }
+.diffDel { display: block; background: var(--error-surface); color: var(--error); }
+.diffLine { display: block; }
+.editor { min-height: 240px; font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0; line-height: 1.3125rem; white-space: pre; }
+.result { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--radius-control); font-size: 0.875rem; line-height: 1.25rem; }
+.resultOk { background: var(--success-surface); color: var(--success); }
+.resultBad { background: var(--error-surface); color: var(--error); }
+.path { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.hint { font-size: 0.8125rem; line-height: 1.125rem; color: var(--text-2); }

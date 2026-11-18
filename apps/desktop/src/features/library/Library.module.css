@@ -1,0 +1,83 @@
+.view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  height: 100%;
+  min-height: 0;
+}
+.view[data-detail='false'] { grid-template-columns: minmax(0, 1fr); }
+.main { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; min-width: 0; padding-inline: clamp(16px, 5cqi, 48px); }
+.titleRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 28px 16px; }
+.title { font-size: 1.75rem; line-height: 2.125rem; font-weight: 700; letter-spacing: -0.02em; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 16px; }
+.search { position: relative; flex: 1 1 200px; min-width: 160px; }
+.searchIcon { position: absolute; left: 12px; top: 11px; color: var(--text-2); pointer-events: none; }
+.searchInput { padding-left: 36px; background: var(--surface); box-shadow: none; }
+.sourceSelect { width: auto; max-width: 180px; background: var(--surface); box-shadow: none; }
+
+.list {
+  overflow-y: auto;
+  min-height: 0;
+  margin-inline: -8px;
+  padding: 2px 8px 24px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  text-align: left;
+  transition: background var(--fast) linear;
+}
+.row:hover { background: var(--hover); }
+.row[aria-selected='true'] { background: var(--surface); box-shadow: var(--shadow); }
+.rowIcon { color: var(--text-2); }
+.rowText { min-width: 0; display: grid; }
+.rowName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9375rem; line-height: 1.375rem; }
+.rowHidden { opacity: 0.6; }
+.rowMeta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; line-height: 1.125rem; color: var(--text-2); }
+.rowDate { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0; color: var(--text-2); white-space: nowrap; }
+@container (max-width: 520px) { .rowDate { display: none; } .row { grid-template-columns: 24px minmax(0, 1fr); } }
+
+.empty { padding: 48px 0; color: var(--text-2); font-size: 0.9375rem; line-height: 1.5rem; }
+.more { justify-self: center; margin-top: 8px; }
+
+.detail {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  margin: 14px 14px 14px 0;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.detailHead { display: flex; align-items: center; gap: 4px; padding: 10px 8px 6px 20px; }
+.detailName { flex: 1; min-width: 0; font-size: 1rem; line-height: 1.5rem; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.detailBody { overflow-y: auto; padding: 4px 20px 20px; display: grid; align-content: start; gap: 16px; }
+.facts { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 0.875rem; line-height: 1.25rem; }
+.facts dt { color: var(--text-2); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.linkButton { text-align: left; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.linkButton:hover { text-decoration-color: currentColor; }
+.checksum { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.versions { display: grid; gap: 2px; }
+.sectionLabel { font-size: 0.8125rem; line-height: 1.125rem; color: var(--text-2); margin-bottom: 4px; }
+.version { display: flex; align-items: center; gap: 12px; min-height: 36px; font-size: 0.875rem; }
+.versionNumber { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0; }
+.versionDate { color: var(--text-2); margin-right: auto; }
+
+@container (max-width: 720px) {
+  .view[data-detail='true'] { grid-template-columns: minmax(0, 1fr); }
+  .view[data-detail='true'] .main { display: none; }
+  .detail { margin: 12px; }
+}
+.references { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 0.9375rem; line-height: 1.375rem; }
+.referenceText { display: block; color: var(--text-2); font-size: 0.8125rem; line-height: 1.125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

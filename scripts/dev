@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Development stack as normal processes (default) or through Docker Compose (--docker).
+#   scripts/dev [--provider fake|hermes] [--seed] [--reset] [--docker] [--api-only]
+# The device token is generated into .dev/ (ignored by Git) and read only by the Vite proxy.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+provider=fake seed=0 reset=0 docker=0 api_only=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --provider) provider="$2"; shift 2 ;;
+    --seed) seed=1; shift ;;
+    --reset) reset=1; shift ;;
+    --docker) docker=1; shift ;;
+    --api-only) api_only=1; shift ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+dev="$root/.dev"
+data="$dev/data"
+port="${AMSG_PORT:-8710}"
+[[ $reset == 1 ]] && rm -rf "$dev"
+mkdir -p "$data"
+chmod 700 "$dev"
+if [[ ! -d "$root/node_modules" ]]; then (cd "$root" && pnpm install --frozen-lockfile); fi
+(cd "$root/services/api" && uv sync --quiet --frozen)
+amsg() { (cd "$root/services/api" && uv run --quiet --frozen amsg "$@"); }
+
+if [[ $docker == 1 ]]; then
+  export AMSG_PROVIDER="$provider"
+  docker compose -f "$root/packaging/docker/compose.yaml" up -d --build --wait
+  if [[ ! -s "$dev/device-token" ]]; then
+    docker compose -f "$root/packaging/docker/compose.yaml" exec -T api amsg device-token --name dev > "$dev/device-token"
+    chmod 600 "$dev/device-token"
+  fi
+  [[ $seed == 1 ]] && docker compose -f "$root/packaging/docker/compose.yaml" exec -T api amsg dev-seed --dev
+else
+  if [[ ! -s "$dev/device-token" ]]; then
+    AMSG_PROVIDER="$provider" amsg device-token --data-dir "$data" --name dev > "$dev/device-token"
+    chmod 600 "$dev/device-token"
+  fi
+  [[ $seed == 1 ]] && AMSG_PROVIDER=fake amsg dev-seed --data-dir "$data" --dev
+  dev_flag=""
+  [[ $provider == fake ]] && dev_flag="--dev"
+  (cd "$root/services/api" && exec uv run --quiet --frozen amsg serve --data-dir "$data" --port "$port" --provider "$provider" $dev_flag) &
+  api=$!
+  trap 'kill $api 2>/dev/null || true' EXIT
+fi
+for _ in $(seq 1 100); do curl -sf "http://127.0.0.1:$port/health/live" >/dev/null && break; sleep 0.1; done
+echo "API ready on 127.0.0.1:$port (provider: $provider)"
+if [[ $api_only == 1 ]]; then
+  [[ $docker == 1 ]] || wait "$api"
+else
+  cd "$root/apps/desktop"
+  AMSG_DEV_API="http://127.0.0.1:$port" exec pnpm exec vite
+fi

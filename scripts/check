@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Formatting, type checks, contract drift and non-secret tests. Needs no private credentials.
+#   scripts/check [--no-rust] [--no-e2e]
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+rust=1 e2e=1
+for argument in "$@"; do
+  case "$argument" in
+    --no-rust) rust=0 ;;
+    --no-e2e) e2e=0 ;;
+    *) echo "unknown option: $argument" >&2; exit 2 ;;
+  esac
+done
+step() { printf '\n== %s\n' "$1"; }
+
+step "Python: lint, format, tests"
+cd "$root/services/api"
+uv sync --quiet --frozen
+uv run --quiet --frozen ruff check src tests ../../integrations
+uv run --quiet --frozen ruff format --check -q src tests ../../integrations
+uv run --quiet --frozen pytest -q
+
+step "Contracts: no drift from the service"
+"$root/scripts/generate-contracts" --check
+
+step "Routes: renderer and native allowlists agree"
+cd "$root"
+python3 - <<'PY'
+import re
+ts = open("apps/desktop/src/transport/operations.ts").read()
+rs = open("apps/desktop/src-tauri/src/routes.rs").read()
+web = set(re.findall(r"^\s+(\w+): \['(GET|POST|PATCH|DELETE)', '([^']+)'\]", ts, re.M))
+native = set(re.findall(r'\(\s*"(\w+)",\s*"(GET|POST|PATCH|DELETE)",\s*"([^"]+)",?\s*\)', rs))
+if web != native:
+    raise SystemExit(f"route tables differ: {sorted(web ^ native)}")
+print(f"{len(web)} routes match")
+PY
+
+step "Frontend: types, unit tests, build"
+cd "$root/apps/desktop"
+pnpm exec tsc --noEmit
+pnpm exec vitest run --reporter=dot
+pnpm exec vite build >/dev/null
+if grep -rlE "DevTransport|development proxy" dist/assets >/dev/null 2>&1; then
+  echo "The development transport reached the release bundle." >&2
+  exit 1
+fi
+echo "release bundle excludes the development transport"
+
+if [[ $rust == 1 ]] && command -v cargo >/dev/null; then
+  step "Native core: format, lint, tests"
+  cd "$root/apps/desktop/src-tauri"
+  cargo fmt --check
+  cargo clippy --quiet -- -D warnings
+  cargo test --quiet --lib
+fi
+
+if [[ $e2e == 1 ]] && curl -sf http://127.0.0.1:1420/ >/dev/null; then
+  step "Browser: interaction gates against the running dev stack"
+  cd "$root/tests/e2e"
+  pnpm exec playwright test
+fi
+printf '\nAll checks passed.\n'

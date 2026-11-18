@@ -1,0 +1,73 @@
+/* Charcoal frame around a sheet of paper. Every rail position keeps three framed sides. */
+.window {
+  position: fixed;
+  inset: var(--app-top, 0px) 0 auto 0;
+  height: var(--app-height, 100%);
+  display: grid;
+  background: var(--rail);
+  min-width: 0;
+  min-height: 0;
+  /* Notch, rounded corners and home indicator on phones; zero elsewhere. */
+  --edge-top: calc(var(--frame-top) + var(--safe-top));
+  --edge-left: calc(var(--frame) + var(--safe-left));
+  --edge-right: calc(var(--frame) + var(--safe-right));
+  --edge-bottom: calc(var(--frame) + var(--safe-bottom));
+}
+.window[data-rail='left'] {
+  grid-template-columns: calc(var(--rail-width) + var(--safe-left)) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  padding: var(--edge-top) var(--edge-right) var(--edge-bottom) 0;
+}
+.window[data-rail='right'] {
+  grid-template-columns: minmax(0, 1fr) calc(var(--rail-width) + var(--safe-right));
+  grid-template-rows: minmax(0, 1fr);
+  padding: var(--edge-top) 0 var(--edge-bottom) var(--edge-left);
+}
+.window[data-rail='top'] {
+  grid-template-rows: calc(64px + var(--safe-top)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 var(--edge-right) var(--edge-bottom) var(--edge-left);
+}
+.window[data-rail='bottom'] {
+  grid-template-rows: minmax(0, 1fr) calc(64px + var(--safe-bottom));
+  grid-template-columns: minmax(0, 1fr);
+  padding: var(--edge-top) var(--edge-right) 0 var(--edge-left);
+}
+/* While the on-screen keyboard is open the sheet takes the whole visible height. */
+:global(:root[data-keyboard='true']) .window[data-rail='bottom'] {
+  grid-template-rows: minmax(0, 1fr) 0;
+  padding-bottom: var(--frame);
+}
+:global(:root[data-keyboard='true']) .window[data-rail='bottom'] > nav { visibility: hidden; }
+.window[data-rail='right'] .sheet, .window[data-rail='bottom'] .sheet { order: -1; }
+
+/* macOS traffic lights sit on charcoal in every position. They span about 62 × 14 pt from (15, 8), and the
+   spacing changes between macOS versions, so the sheet clears them vertically instead of relying on the
+   rail's width. */
+.window[data-platform='mac'] { --frame-top: 30px; --rail-lead: 36px; --rail-lead-short: 24px; }
+.window[data-platform='mac'][data-rail='top'] { --frame-top: 14px; --rail-lead-x: 84px; }
+
+.drag {
+  position: absolute;
+  z-index: 5;
+  inset: 0 0 auto 0;
+  height: var(--frame-top);
+}
+
+.sheet {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--canvas);
+  color: var(--text);
+  container-type: inline-size;
+  overflow: hidden;
+}
+
+@media (max-width: 760px) { .window { --frame: 8px; --frame-top: 8px; } }
+@media (max-height: 560px) { .window { --frame: 8px; --frame-top: 8px; } }
+
+@media (max-width: 600px) {
+  .window { --frame: 0px; --frame-top: 0px; }
+  .window[data-rail='bottom'] { grid-template-rows: minmax(0, 1fr) calc(52px + var(--safe-bottom)); }
+}

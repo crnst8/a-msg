@@ -1,0 +1,180 @@
+.view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+.column {
+  width: 100%;
+  max-width: calc(var(--reading) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+/* The avatar needs room in the gutter; narrow sheets drop it onto the card instead. */
+@container (min-width: 621px) {
+  .column { --gutter: clamp(52px, 8cqi, 72px); }
+}
+@container (max-width: 620px) {
+  .column { --gutter: 16px; }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+}
+.titleBlock { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.titleBlock:has(.directory) .title { flex: 0 0 auto; max-width: 42%; }
+.titleBlock:has(.directory) .agent { flex: 1 1 0; overflow: hidden; }
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+.agent {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.agentName { flex: none; }
+.access { flex: none; color: var(--text-2); }
+.access[data-access='full'] { color: var(--warning); }
+/* Right-to-left only moves the ellipsis to the start of the path; the bdi keeps the path itself in order. */
+.directory { flex: 0 1 auto; min-width: 0; font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--success); }
+.dot[data-state='offline'] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-2); }
+.dot[data-state='connecting'] { background: var(--warning); }
+.actions { display: flex; gap: 2px; margin-right: -8px; }
+.automation { display: inline-flex; align-items: center; gap: 6px; }
+
+/* General has no header. What still needs saying sits over the transcript and takes no height. */
+.floating {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.problem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding-inline: 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: var(--shadow), 0 0 0 1px var(--line);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.floatingAction { background: var(--surface); box-shadow: var(--shadow), 0 0 0 1px var(--line); }
+
+.scroller {
+  grid-row: 2;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-anchor: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 22px), transparent 100%);
+  outline: none;
+}
+/* The clip keeps a moving stack out of the scrollable overflow, so scrollHeight only ever means the content. */
+.transcript { padding-block: 32px 28px; min-height: 100%; display: flex; flex-direction: column; overflow: hidden; overflow: clip; }
+.stack { flex: 1; display: flex; flex-direction: column; }
+.older { height: 1px; }
+.loading { text-align: center; padding-bottom: 20px; font-size: 0.8125rem; line-height: 1.25rem; color: var(--text-2); }
+.invitation {
+  margin-block: auto;
+  padding-block: 40px;
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  letter-spacing: -0.02em;
+}
+.notice { margin-block: auto; color: var(--text-2); font-size: 0.875rem; line-height: 1.25rem; }
+
+.dock { grid-row: 3; position: relative; padding-block: 2px 22px; }
+.jump {
+  position: absolute;
+  z-index: 3;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  animation: rise var(--panel) var(--ease);
+}
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
+
+.selectBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 12px 12px 12px 24px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.9375rem;
+}
+.selectCount { flex: 1; min-width: 0; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.find {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: min(360px, calc(100% - 32px));
+  height: 44px;
+  padding: 0 4px 0 12px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-raised), 0 0 0 1px var(--line);
+  animation: pop var(--fast) var(--ease);
+}
+@keyframes pop { from { opacity: 0; transform: translateY(-3px); } }
+.findInput { flex: 1; min-width: 0; height: 100%; border: 0; background: none; font-size: 0.9375rem; color: var(--text); }
+.findInput:focus-visible { outline: none; }
+.findCount { flex: none; font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0; color: var(--text-2); padding: 0 6px; white-space: nowrap; }
+
+@container (max-width: 620px) {
+  .column { --gutter: 12px; }
+  .header { min-height: 52px; height: auto; flex-wrap: wrap; padding-block: 4px; gap: 4px; }
+  .titleBlock { flex-wrap: wrap; gap: 0 8px; }
+  .titleBlock:has(.directory) .title { max-width: 100%; }
+  .agent { font-size: 0.8125rem; }
+  .transcript { padding-block: 20px 16px; }
+  .dock { padding-block: 4px 8px; }
+  .scroller { mask-image: none; -webkit-mask-image: none; scroll-padding-block: 16px; }
+}
+@media (pointer: coarse) { .jump { min-height: 44px; top: -48px; border-radius: 24px; } }

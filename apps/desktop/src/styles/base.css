@@ -1,0 +1,124 @@
+/* Colors are written to :root by state/theme.ts before first paint. These are the rest of the system. */
+:root {
+  --font-ui: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --shadow: 0 2px 8px rgba(30, 30, 30, 0.07);
+  --shadow-raised: 0 10px 32px rgba(30, 30, 30, 0.18);
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-sheet: 12px;
+  --rail-size: 72px;
+  --rail-expanded: 220px;
+  --frame: 14px;
+  --frame-top: 14px;
+  --reading: 760px;
+  --gutter: clamp(24px, 6cqi, 48px);
+  --card-pad: 24px;
+  --gap-turn: 32px;
+  --gap-reply: 24px;
+  --fast: 120ms;
+  --panel: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-density='compact'] {
+  --card-pad: 16px;
+  --gap-turn: 28px;
+  --gap-reply: 20px;
+}
+
+/* System safe areas reserve the status bar and home indicator without an additional decorative band. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+@media (display-mode: standalone) {
+  :root { --safe-top: env(safe-area-inset-top, 0px); }
+  /* iOS 26+ gives home-screen apps a viewport one status bar short until the document is screen-tall. */
+  html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top, 0px))); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --fast: 0ms; --panel: 0ms; }
+}
+:root[data-motion='reduce'] { --fast: 0ms; --panel: 0ms; }
+
+@media (prefers-contrast: more) {
+  :root { --shadow: 0 0 0 1px var(--text); --shadow-raised: 0 0 0 1px var(--text); }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  background: var(--rail);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: -0.006em;
+  overflow: hidden;
+  overflow-anchor: none;
+}
+
+button, input, textarea, select {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+button {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+button:disabled { cursor: default; }
+/* iOS zooms into any field set below 16px when it takes focus. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: max(16px, 1em); }
+}
+button, a, [role='button'] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+h1, h2, h3, p, ul, ol { margin: 0; }
+img { display: block; }
+a { color: inherit; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
+::selection { background: var(--selection); }
+::highlight(find) { background: var(--find); color: var(--on-find); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.mono { font-family: var(--font-mono); letter-spacing: 0; }
+
+/* Reading space takes priority on phones, including comfortable density. */
+@media (max-width: 600px) {
+  :root, :root[data-density='compact'] {
+    --card-pad: 16px;
+    --gap-turn: 24px;
+    --gap-reply: 16px;
+  }
+}

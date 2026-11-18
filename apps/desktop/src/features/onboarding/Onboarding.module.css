@@ -1,0 +1,53 @@
+.screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--rail);
+  overflow-y: auto;
+}
+.drag { position: fixed; inset: 0 0 auto 0; height: 44px; }
+.card {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 32px;
+  border-radius: var(--radius-sheet);
+  background: var(--canvas);
+  color: var(--text);
+  box-shadow: var(--shadow-raised);
+}
+/* The symbol sits 37/256 inside its canvas; pull it left so its edge lines up with the title. */
+.mark { display: block; margin: 0 0 20px calc(44px * -37 / 256); color: var(--brand); }
+.title { font-size: 1.75rem; line-height: 2.125rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 20px; }
+.form { display: grid; gap: 14px; }
+.input { background: var(--surface); box-shadow: none; }
+.error { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--radius-control); background: var(--error-surface); color: var(--error); font-size: 0.875rem; line-height: 1.25rem; }
+.submit { height: 40px; margin-top: 4px; }
+.status { font-size: 0.875rem; line-height: 1.25rem; color: var(--text-2); min-height: 1.25rem; }
+.saved { display: grid; gap: 8px; margin: 0 0 20px; padding: 0; list-style: none; }
+.server {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 48px;
+  padding-right: 6px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  transition: background var(--fast) linear;
+}
+.server:hover { background: var(--well); }
+.serverName {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+}
